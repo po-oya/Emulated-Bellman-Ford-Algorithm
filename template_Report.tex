@@ -1,0 +1,80 @@
+\documentclass[a4paper]{article}
+\usepackage{amsmath}
+\usepackage{subfig}
+\usepackage[colorlinks,citecolor=cyan,linkcolor=red]{hyperref}
+\usepackage{bookmark}
+\usepackage{graphicx}
+\usepackage{minted}
+\usepackage{booktabs}
+\usepackage{fontawesome}
+% Title Page
+\title{Emulated Bellman-Ford Algorithm Implementation}
+\author{Khandel, Pooya \and Mirkamali, Mohammad Hossein \and Ramezani, Mostafa \and Tavakoli Bina, Mohammad Hossein}
+
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+	In this project we have implemented an emulation of \emph{Bellman-Ford} algorithm using some terminals as routers and UDP sockets as a mean of communication. Link costs are given to routers using a text file named \emph{adjmat.txt} and  router's port number are determined based on another file named \emph{whichport.txt}. Results are shown on updates leading to a change in router's routing table. Source codes are provided on our \faGithub Github repository \href{https://github.com/PoOyaKhandel/Emulated-Bellman-Ford-Algorithm}{here}.
+\end{abstract}
+\section{Introduction}
+The work is based on two distinct python codes: \begin{enumerate}
+	\item Router.py
+	\item BellmanFord.py
+\end{enumerate}
+The Router code is responsible for getting link costs out of the adjacency matrix, running an object of Bellman-Ford class and calculating  it's routing tables. Also it should update it's link costs upon press of \textbf{U} key.
+
+The Bellman-Ford code, as expected, contains a class which is responsible for algorithm calculations and also has a function for showing resulting table.
+
+In the following, we'll review both codes part by part.
+\section{Router code}
+We explain this code in two parts.
+\subsection{Initializations, input handling, etc!}
+\inputminted[firstline=1,lastline=43,frame=leftline,linenos,python3]{python}{codes/Router1.py}
+
+In line 6, the \emph{Bellman-Ford} class(mentioned before) is included. In lines 14 \& 15, two new dictionaries are defined, to remember which port is for what router and vice versa. This dictionary is filled up in lines (21,25).
+
+From lines 28 to 31, the \emph{adjmat.txt} file is opened and the line corresponding to router ID is put into a \emph{initialCost} list. We have much work to do with this list.
+
+In line 33 an object of BFA class and number of all routers, link costs(\emph{initialCost}), router ID(\emph{router Name}), and port-router ID map(in \emph{whichPort} and \emph{adrToName}). \textbf{which\_to\_send()} function which run in line 34 will be explained later.
+
+Finally, from line 36 to 40 program gives \emph{'s'} character from user to start the algorithm with a try/expect and type assertion structure.
+
+In line 42 router sends its link costs to its neighbors for the first time, with a mechanism that will be explained later. 
+\subsection{Router code loop}  
+\inputminted[firstline=44,lastline=60,frame=leftline,linenos,python3]{python}{codes/Router1.py}
+
+Two main works are done in this loop: \emph{first}. Checking for user press of \textbf{"U"} key and \emph{second}. Sending periodically updates to neighbors.
+
+Upon press of \textbf{U} key which is handled by \emph{msvcrt} module and \emph{hit} variable on line 45, the router program reads its corresponding adjacency matrix again and puts it in \emph{newCost} variable. then it is passed to \textbf{check\_cost()} function and if there is any change in the adjacency matrix, a series of needed operations are done which will be described in the \emph{Bellman-Ford} class code.
+
+In addition to advertisements which routers send on routing table changes, they send advertisements periodically every few seconds. In order to handle this, In line 43 of the code, a timer is started with \emph{timeit} module. if \emph{elapsedTime} variable runs out of 1 seconds, the router will send update to its neighbors using \textbf{send()} function. Then it tries to receive ads from with \text{receive()} function as you see in line 51.
+\section{Bellman-Ford class code}
+\subsection{Constructor}
+To explain this part of code, we start by class constructor.
+\inputminted[firstline=1,lastline=30,frame=leftline,linenos,python3]{python}{codes/BellmanFord.py}
+
+Most important thing to say about constructor is that upon object creation in Router program, The constructor creates a UDP socket on that Router's port with 0.5 seconds timeout duration and initials some parameters like \emph{initial\_cost} which holds router's link costs value.
+\subsection{\textbf{init\_tables()}}
+\inputminted[firstline=32,lastline=44,frame=leftline,linenos,python3]{python}{codes/BellmanFord.py}
+This function initializes router's routing table with \emph{99} value(A value we consider as \emph{There is no link!}). Also it initializes \emph{lie\_table}(A list which holds link cost ads we want to advertise with neighbors) to \emph{initial\_cost}, which is in fact the link costs read form adjacency matrix. \emph{use\_who} list being filled up in this function determines we can reach destination router by means of which neighbor.
+\subsection{\textbf{who\_to\_send()}}
+\inputminted[firstline=46,lastline=52,frame=leftline,linenos,python3]{python}{codes/BellmanFord.py}
+This functions check \emph{initial\_cost} list and fills another list with boolean parameters to determine which routers are neighbor to current router and to which we should send updates.
+\subsection{\textbf{send()}}
+\inputminted[firstline=54,lastline=63,frame=leftline,breaklines,linenos,python3]{python}{codes/BellmanFord.py}
+This function sends advertisement messages to other routers just if they're \textbf{neighbors} to this router. This is guaranteed using data stored in \emph{permission} list stored using \textbf{who\_to\_send()} function.
+\subsection{\textbf{receive()}}
+\inputminted[firstline=65,lastline=83,frame=leftline,linenos,python3,breaklines]{python}{codes/BellmanFord.py}
+This function is responsible for receiving advertisements from neighbors, matching their (routerID, port number) pair in \emph{old\_pm} dictionary and stimulating \textbf{do\_alg()} function.
+\subsection{\textbf{do\_alg()}}
+\inputminted[firstline=85,lastline=118,frame=leftline,linenos,python3]{python}{codes/BellmanFord.py}
+In this function, the current and alternative costs to reach each destination router in the network is computed. From current routing table, Current path cost to destination router is determined and put in \emph{temp} variable. Then we iterate on \emph{initail\_cost} list(router's link costs) to obtain link cost to neighbors and put it in \emph{cost1} variable. After that, \emph{cost2} variable will be filled with link cost from that specified neighbor to destination router. If total path cost for new path(cost1+cost2) is less than \emph{temp} variable, Then the routing table will be updated with that path cost and \textbf{use\_who} list will be filled with index of neighbor router contributing in that path. Also \textbf{lie\_to} list for that contributing neighbor router will be updated such that it won't use source router to route through destination one(poisoned reverse). At last, the routing table is shown up using \textbf{bf\_show()} function. Note that for poisoned reverse, A big number. here assumed \emph{99}, is used as link cost.
+\subsection{\textbf{bf\_show()}}
+\inputminted[firstline=120,lastline=134,frame=leftline,linenos,python3,breaklines]{python}{codes/BellmanFord.py}
+This function is just for showing routing table in a beautiful form!
+\subsection{\textbf{check\_cost()}}
+\inputminted[firstline=136,lastline=162,frame=leftline,linenos,python3]{python}{codes/BellmanFord.py}
+And the last function in the \emph{Bellman-Ford} class! It's stimulated when \textbf{U} key is pressed by user and it checks whether the adjacency matrix is changed or not. If it is, the link cost vector(\emph{initail\_cost}) and routing table will be updated and \emph{lie\_table} resets. Then it will be initialized with new link costs, The \emph{use\_who} list updates(to find new contributing routers in paths), and algorith runs again to compute new least cost paths.
+\end{document}          
